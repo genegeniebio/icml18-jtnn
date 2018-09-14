@@ -1,6 +1,7 @@
-from torch.utils.data import Dataset
 from mol_tree import MolTree
 import numpy as np
+from torch.utils.data import Dataset
+
 
 class MoleculeDataset(Dataset):
 
@@ -10,13 +11,14 @@ class MoleculeDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         smiles = self.data[idx]
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         mol_tree.assemble()
         return mol_tree
+
 
 class PropDataset(Dataset):
 
@@ -27,11 +29,10 @@ class PropDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         smiles = self.data[idx]
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         mol_tree.assemble()
         return mol_tree, self.prop_data[idx]
-

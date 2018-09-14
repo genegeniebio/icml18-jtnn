@@ -1,18 +1,20 @@
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-
-import math, random, sys
+import math
+import random
+import sys
 from optparse import OptionParser
 
 import rdkit
-import rdkit.Chem as Chem
 from rdkit.Chem import Draw
 
-import numpy as np
 from jtnn import *
+import numpy as np
+import rdkit.Chem as Chem
+import torch
+from torch.autograd import Variable
+import torch.nn as nn
 
-lg = rdkit.RDLogger.logger() 
+
+lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = OptionParser()
@@ -21,9 +23,9 @@ parser.add_option("-m", "--model", dest="model_path")
 parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
 parser.add_option("-l", "--latent", dest="latent_size", default=56)
 parser.add_option("-d", "--depth", dest="depth", default=3)
-opts,args = parser.parse_args()
-   
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)] 
+opts, args = parser.parse_args()
+
+vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -49,14 +51,14 @@ z0 = z0.data.cpu().numpy()
 
 delta = 1
 nei_mols = []
-for dx in xrange(-6,7):
-    for dy in xrange(-6,7):
+for dx in xrange(-6, 7):
+    for dy in xrange(-6, 7):
         z = z0 + x * delta * dx + y * delta * dy
         tree_z, mol_z = torch.Tensor(z).unsqueeze(0).chunk(2, dim=1)
         tree_z, mol_z = create_var(tree_z), create_var(mol_z)
-        nei_mols.append( model.decode(tree_z, mol_z, prob_decode=False) )
+        nei_mols.append(model.decode(tree_z, mol_z, prob_decode=False))
 
 nei_mols = [Chem.MolFromSmiles(s) for s in nei_mols]
-img = Draw.MolsToGridImage(nei_mols, molsPerRow=13, subImgSize=(200,200), useSVG=True)
+img = Draw.MolsToGridImage(nei_mols, molsPerRow=13,
+                           subImgSize=(200, 200), useSVG=True)
 print img
-

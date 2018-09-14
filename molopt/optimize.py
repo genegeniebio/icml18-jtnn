@@ -1,19 +1,21 @@
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-
-import math, random, sys
-from optparse import OptionParser
 from collections import deque
+import math
+import random
+import sys
+from optparse import OptionParser
 
 import rdkit
-import rdkit.Chem as Chem
 from rdkit.Chem import Descriptors
-import sascorer
 
 from jtnn import *
+import rdkit.Chem as Chem
+import sascorer
+import torch
+from torch.autograd import Variable
+import torch.nn as nn
 
-lg = rdkit.RDLogger.logger() 
+
+lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = OptionParser()
@@ -24,9 +26,9 @@ parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
 parser.add_option("-l", "--latent", dest="latent_size", default=56)
 parser.add_option("-d", "--depth", dest="depth", default=3)
 parser.add_option("-s", "--sim", dest="cutoff", default=0.0)
-opts,args = parser.parse_args()
-   
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)] 
+opts, args = parser.parse_args()
+
+vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -49,11 +51,12 @@ for smiles in data:
     mol = Chem.MolFromSmiles(smiles)
     score = Descriptors.MolLogP(mol) - sascorer.calculateScore(mol)
 
-    new_smiles,sim = model.optimize(smiles, sim_cutoff=sim_cutoff, lr=2, num_iter=80)
+    new_smiles, sim = model.optimize(
+        smiles, sim_cutoff=sim_cutoff, lr=2, num_iter=80)
     new_mol = Chem.MolFromSmiles(new_smiles)
     new_score = Descriptors.MolLogP(new_mol) - sascorer.calculateScore(new_mol)
 
-    res.append( (new_score - score, sim, score, new_score, smiles, new_smiles) )
+    res.append((new_score - score, sim, score, new_score, smiles, new_smiles))
     print new_score - score, sim, score, new_score, smiles, new_smiles
 
 print sum([x[0] for x in res]), sum([x[1] for x in res])

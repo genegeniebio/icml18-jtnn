@@ -1,19 +1,22 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
-from torch.autograd import Variable
-
-import math, random, sys
-from optparse import OptionParser
 from collections import deque
+import math
+import random
+import sys
+from optparse import OptionParser
+
 import rdkit
-import rdkit.Chem as Chem
 from rdkit.Chem import Draw
 
 from jtnn import *
+import rdkit.Chem as Chem
+import torch
+from torch.autograd import Variable
+import torch.nn as nn
+import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 
-lg = rdkit.RDLogger.logger() 
+
+lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = OptionParser()
@@ -23,9 +26,9 @@ parser.add_option("-m", "--model", dest="model_path")
 parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
 parser.add_option("-l", "--latent", dest="latent_size", default=56)
 parser.add_option("-d", "--depth", dest="depth", default=3)
-opts,args = parser.parse_args()
-   
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)] 
+opts, args = parser.parse_args()
+
+vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -36,7 +39,7 @@ nsample = int(opts.nsample)
 model = JTNNVAE(vocab, hidden_size, latent_size, depth)
 load_dict = torch.load(opts.model_path)
 missing = {k: v for k, v in model.state_dict().items() if k not in load_dict}
-load_dict.update(missing) 
+load_dict.update(missing)
 model.load_state_dict(load_dict)
 model = model.cuda()
 
