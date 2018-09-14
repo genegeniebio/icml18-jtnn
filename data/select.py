@@ -1,28 +1,16 @@
-import sys
+from rdkit.Chem import Descriptors, MolFromSmiles
 
-import rdkit
-from rdkit.Chem import Descriptors
-from rdkit.Chem import MolFromSmiles, MolToSmiles
-from rdkit.Chem import rdmolops
+from bo import sascorer
 
-import numpy as np
-import sascorer
-
-
-lg = rdkit.RDLogger.logger()
-lg.setLevel(rdkit.RDLogger.CRITICAL)
-
-smiles = []
-for line in sys.stdin:
-    smiles.append(line.strip())
+smiles = ['CC(C)(C)c1ccc2occ(CC(=O)Nc3ccccc3F)c2c1']
 
 targets = []
-for i in xrange(len(smiles)):
-    logp = Descriptors.MolLogP(MolFromSmiles(smiles[i]))
-    sa = sascorer.calculateScore(MolFromSmiles(smiles[i]))
-    targets.append(logp - sa)
 
-smiles = zip(smiles, targets)
-smiles = sorted(smiles, key=lambda x: x[1])
-for x, y in smiles:
+for smile in smiles:
+    mol = MolFromSmiles(smile)
+    logp = Descriptors.MolLogP(mol)
+    sa = sascorer.calculateScore(mol)
+    targets.append((smile, logp - sa))
+
+for x, y in sorted(targets, key=lambda x: x[1]):
     print x, y
