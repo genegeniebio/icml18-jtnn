@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import rdkit
-from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
+from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 
@@ -39,7 +39,7 @@ def decode_stereo(smiles2D):
                 for mol in dec_isomers]
 
     chiralN = [atom.GetIdx() for atom in dec_isomers[0].GetAtoms() if int(
-        atom.GetChiralTag()) > 0 and atom.GetSymbol() == "N"]
+        atom.GetChiralTag()) > 0 and atom.GetSymbol() == 'N']
     if len(chiralN) > 0:
         for mol in dec_isomers:
             for idx in chiralN:
@@ -54,7 +54,7 @@ def sanitize(mol):
     try:
         smiles = get_smiles(mol)
         mol = get_mol(smiles)
-    except Exception as e:
+    except Exception:
         return None
     return mol
 
@@ -171,7 +171,8 @@ def tree_decomp(mol):
 
 
 def atom_equal(a1, a2):
-    return a1.GetSymbol() == a2.GetSymbol() and a1.GetFormalCharge() == a2.GetFormalCharge()
+    return a1.GetSymbol() == a2.GetSymbol() and \
+        a1.GetFormalCharge() == a2.GetFormalCharge()
 
 # Bond type not considered because all aromatic (so SINGLE matches DOUBLE)
 
@@ -263,7 +264,8 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
                 if atom_equal(a1, a2):
                     # Optimize if atom is carbon (other atoms may change
                     # valence)
-                    if a1.GetAtomicNum() == 6 and a1.GetTotalNumHs() + a2.GetTotalNumHs() < 4:
+                    if a1.GetAtomicNum() == 6 and \
+                            a1.GetTotalNumHs() + a2.GetTotalNumHs() < 4:
                         continue
                     new_amap = amap + [(nei_idx, a1.GetIdx(), a2.GetIdx())]
                     att_confs.append(new_amap)
@@ -273,13 +275,19 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
             for b1 in ctr_bonds:
                 for b2 in nei_mol.GetBonds():
                     if ring_bond_equal(b1, b2):
-                        new_amap = amap + [(nei_idx, b1.GetBeginAtom().GetIdx(), b2.GetBeginAtom(
-                        ).GetIdx()), (nei_idx, b1.GetEndAtom().GetIdx(), b2.GetEndAtom().GetIdx())]
+                        new_amap = amap + \
+                            [(nei_idx, b1.GetBeginAtom().GetIdx(),
+                              b2.GetBeginAtom().GetIdx()),
+                             (nei_idx, b1.GetEndAtom().GetIdx(),
+                              b2.GetEndAtom().GetIdx())]
                         att_confs.append(new_amap)
 
                     if ring_bond_equal(b1, b2, reverse=True):
-                        new_amap = amap + [(nei_idx, b1.GetBeginAtom().GetIdx(), b2.GetEndAtom(
-                        ).GetIdx()), (nei_idx, b1.GetEndAtom().GetIdx(), b2.GetBeginAtom().GetIdx())]
+                        new_amap = amap + \
+                            [(nei_idx, b1.GetBeginAtom().GetIdx(),
+                              b2.GetEndAtom().GetIdx()),
+                             (nei_idx, b1.GetEndAtom().GetIdx(),
+                              b2.GetBeginAtom().GetIdx())]
                         att_confs.append(new_amap)
     return att_confs
 
@@ -369,15 +377,22 @@ def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
             dfs_assemble(cur_mol, global_amap, label_amap, nei_node, cur_node)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
     from mol_tree import MolTree
     lg = rdkit.RDLogger.logger()
     lg.setLevel(rdkit.RDLogger.CRITICAL)
 
-    smiles = ["O=C1[C@@H]2C=C[C@@H](C=CC2)C1(c1ccccc1)c1ccccc1", "O=C([O-])CC[C@@]12CCCC[C@]1(O)OC(=O)CC2", "ON=C1C[C@H]2CC3(C[C@@H](C1)c1ccccc12)OCCO3", "C[C@H]1CC(=O)[C@H]2[C@@]3(O)C(=O)c4cccc(O)c4[C@@H]4O[C@@]43[C@@H](O)C[C@]2(O)C1",
-              'Cc1cc(NC(=O)CSc2nnc3c4ccccc4n(C)c3n2)ccc1Br', 'CC(C)(C)c1ccc(C(=O)N[C@H]2CCN3CCCc4cccc2c43)cc1', "O=c1c2ccc3c(=O)n(-c4nccs4)c(=O)c4ccc(c(=O)n1-c1nccs1)c2c34", "O=C(N1CCc2c(F)ccc(F)c2C1)C1(O)Cc2ccccc2C1"]
-    mol_tree = MolTree("C")
+    smiles = ['O=C1[C@@H]2C=C[C@@H](C=CC2)C1(c1ccccc1)c1ccccc1',
+              'O=C([O-])CC[C@@]12CCCC[C@]1(O)OC(=O)CC2',
+              'ON=C1C[C@H]2CC3(C[C@@H](C1)c1ccccc12)OCCO3',
+              'C[C@H]1CC(=O)[C@H]2[C@@]3(O)C(=O)c4cccc(O)c4[C@@H]4O[C@@]' +
+              '43[C@@H](O)C[C@]2(O)C1',
+              'Cc1cc(NC(=O)CSc2nnc3c4ccccc4n(C)c3n2)ccc1Br',
+              'CC(C)(C)c1ccc(C(=O)N[C@H]2CCN3CCCc4cccc2c43)cc1',
+              'O=c1c2ccc3c(=O)n(-c4nccs4)c(=O)c4ccc(c(=O)n1-c1nccs1)c2c34',
+              'O=C(N1CCc2c(F)ccc(F)c2C1)C1(O)Cc2ccccc2C1']
+    mol_tree = MolTree('C')
     assert len(mol_tree.nodes) > 0
 
     def tree_test():
@@ -397,7 +412,7 @@ if __name__ == "__main__":
             tree.recover()
 
             cur_mol = copy_edit_mol(tree.nodes[0].mol)
-            global_amap = [{}] + [{} for node in tree.nodes]
+            global_amap = [{}] + [{} for _ in tree.nodes]
             global_amap[1] = {atom.GetIdx(): atom.GetIdx()
                               for atom in cur_mol.GetAtoms()}
 

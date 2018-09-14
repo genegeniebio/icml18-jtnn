@@ -1,13 +1,13 @@
-from chemutils import get_mol
+import torch
+
 from nnutils import create_var, index_select_ND
 import rdkit.Chem as Chem
-import torch
 import torch.nn as nn
 
 
-#from mpn import atom_features, bond_features, ATOM_FDIM, BOND_FDIM
 ELEM_LIST = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na',
-             'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn', 'unknown']
+             'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn',
+             'unknown']
 
 ATOM_FDIM = len(ELEM_LIST) + 6 + 5 + 1
 BOND_FDIM = 5
@@ -31,7 +31,11 @@ def atom_features(atom):
 
 def bond_features(bond):
     bt = bond.GetBondType()
-    return torch.Tensor([bt == Chem.rdchem.BondType.SINGLE, bt == Chem.rdchem.BondType.DOUBLE, bt == Chem.rdchem.BondType.TRIPLE, bt == Chem.rdchem.BondType.AROMATIC, bond.IsInRing()])
+    return torch.Tensor([bt == Chem.rdchem.BondType.SINGLE,
+                         bt == Chem.rdchem.BondType.DOUBLE,
+                         bt == Chem.rdchem.BondType.TRIPLE,
+                         bt == Chem.rdchem.BondType.AROMATIC,
+                         bond.IsInRing()])
 
 
 class JTMPN(nn.Module):
@@ -48,8 +52,10 @@ class JTMPN(nn.Module):
     def forward(self, cand_batch, tree_mess):
         fatoms, fbonds = [], []
         in_bonds, all_bonds = [], []
-        mess_dict, all_mess = {}, [create_var(torch.zeros(
-            self.hidden_size))]  # Ensure index 0 is vec(0)
+
+        # Ensure index 0 is vec(0)
+        mess_dict, all_mess = {}, [create_var(torch.zeros(self.hidden_size))]
+
         total_atoms = 0
         scope = []
 
@@ -57,9 +63,8 @@ class JTMPN(nn.Module):
             mess_dict[e] = len(all_mess)
             all_mess.append(vec)
 
-        for mol, all_nodes, ctr_node in cand_batch:
+        for mol, all_nodes, _ in cand_batch:
             n_atoms = mol.GetNumAtoms()
-            ctr_bid = ctr_node.idx
 
             for atom in mol.GetAtoms():
                 fatoms.append(atom_features(atom))

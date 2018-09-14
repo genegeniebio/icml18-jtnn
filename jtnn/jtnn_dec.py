@@ -1,9 +1,8 @@
-import copy
+import torch
 
 from chemutils import enum_assemble
-from mol_tree import Vocab, MolTree, MolTreeNode
+from mol_tree import MolTreeNode
 from nnutils import create_var, GRU
-import torch
 import torch.nn as nn
 
 
@@ -43,14 +42,14 @@ class JTNNDecoder(nn.Module):
         self.stop_loss = nn.BCEWithLogitsLoss(size_average=False)
 
     def get_trace(self, node):
-        super_root = MolTreeNode("")
+        super_root = MolTreeNode('')
         super_root.idx = -1
         trace = []
         dfs(trace, node, super_root)
         return [(x.smiles, y.smiles, z) for x, y, z in trace]
 
     def forward(self, mol_batch, mol_vec):
-        super_root = MolTreeNode("")
+        super_root = MolTreeNode('')
         super_root.idx = -1
 
         # Initialize
@@ -88,7 +87,8 @@ class JTNNDecoder(nn.Module):
             for node_x, real_y, _ in prop_list:
                 # Neighbors for message passing (target not included)
                 cur_nei = [h[(node_y.idx, node_x.idx)]
-                           for node_y in node_x.neighbors if node_y.idx != real_y.idx]
+                           for node_y in node_x.neighbors
+                           if node_y.idx != real_y.idx]
                 pad_len = MAX_NB - len(cur_nei)
                 cur_h_nei.extend(cur_nei)
                 cur_h_nei.extend([padding] * pad_len)
@@ -255,7 +255,8 @@ class JTNNDecoder(nn.Module):
                 for wid in sort_wid[:5]:
                     slots = self.vocab.get_slots(wid)
                     node_y = MolTreeNode(self.vocab.get_smiles(wid))
-                    if have_slots(fa_slot, slots) and can_assemble(node_x, node_y):
+                    if have_slots(fa_slot, slots) and \
+                            can_assemble(node_x, node_y):
                         next_wid = wid
                         next_slots = slots
                         break
@@ -277,7 +278,8 @@ class JTNNDecoder(nn.Module):
 
                 node_fa, _ = stack[-2]
                 cur_h_nei = [h[(node_y.idx, node_x.idx)]
-                             for node_y in node_x.neighbors if node_y.idx != node_fa.idx]
+                             for node_y in node_x.neighbors
+                             if node_y.idx != node_fa.idx]
                 if len(cur_h_nei) > 0:
                     cur_h_nei = torch.stack(cur_h_nei, dim=0).view(
                         1, -1, self.hidden_size)
@@ -293,9 +295,9 @@ class JTNNDecoder(nn.Module):
         return root, all_nodes
 
 
-"""
+'''
 Helper Functions:
-"""
+'''
 
 
 def dfs(stack, x, fa):
@@ -315,16 +317,19 @@ def have_slots(fa_slots, ch_slots):
         a1, c1, h1 = s1
         for j, s2 in enumerate(ch_slots):
             a2, c2, h2 = s2
-            if a1 == a2 and c1 == c2 and (a1 != "C" or h1 + h2 >= 4):
+            if a1 == a2 and c1 == c2 and (a1 != 'C' or h1 + h2 >= 4):
                 matches.append((i, j))
 
     if len(matches) == 0:
         return False
 
     fa_match, ch_match = zip(*matches)
-    if len(set(fa_match)) == 1 and 1 < len(fa_slots) <= 2:  # never remove atom from ring
+    # never remove atom from ring
+    if len(set(fa_match)) == 1 and 1 < len(fa_slots) <= 2:
         fa_slots.pop(fa_match[0])
-    if len(set(ch_match)) == 1 and 1 < len(ch_slots) <= 2:  # never remove atom from ring
+
+    # never remove atom from ring
+    if len(set(ch_match)) == 1 and 1 < len(ch_slots) <= 2:
         ch_slots.pop(ch_match[0])
 
     return True

@@ -1,13 +1,14 @@
-from chemutils import get_mol
-from nnutils import *
-import rdkit.Chem as Chem
 import torch
+
+from chemutils import get_mol
+from nnutils import create_var, index_select_ND
+import rdkit.Chem as Chem
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 ELEM_LIST = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na',
-             'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn', 'unknown']
+             'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn',
+             'unknown']
 
 ATOM_FDIM = len(ELEM_LIST) + 6 + 5 + 4 + 1
 BOND_FDIM = 5 + 6
@@ -26,15 +27,19 @@ def atom_features(atom):
                                             [0, 1, 2, 3, 4, 5])
                         + onek_encoding_unk(atom.GetFormalCharge(),
                                             [-1, -2, 1, 2, 0])
-                        + onek_encoding_unk(int(atom.GetChiralTag()), [0, 1, 2, 3])
+                        + onek_encoding_unk(int(atom.GetChiralTag()),
+                                            [0, 1, 2, 3])
                         + [atom.GetIsAromatic()])
 
 
 def bond_features(bond):
     bt = bond.GetBondType()
     stereo = int(bond.GetStereo())
-    fbond = [bt == Chem.rdchem.BondType.SINGLE, bt == Chem.rdchem.BondType.DOUBLE, bt ==
-             Chem.rdchem.BondType.TRIPLE, bt == Chem.rdchem.BondType.AROMATIC, bond.IsInRing()]
+    fbond = [bt == Chem.rdchem.BondType.SINGLE,
+             bt == Chem.rdchem.BondType.DOUBLE,
+             bt == Chem.rdchem.BondType.TRIPLE,
+             bt == Chem.rdchem.BondType.AROMATIC,
+             bond.IsInRing()]
     fstereo = onek_encoding_unk(stereo, [0, 1, 2, 3, 4, 5])
     return torch.Tensor(fbond + fstereo)
 
@@ -48,7 +53,6 @@ def mol2graph(mol_batch):
 
     for smiles in mol_batch:
         mol = get_mol(smiles)
-        #mol = Chem.MolFromSmiles(smiles)
         n_atoms = mol.GetNumAtoms()
         for atom in mol.GetAtoms():
             fatoms.append(atom_features(atom))
@@ -113,7 +117,7 @@ class MPN(nn.Module):
         binput = self.W_i(fbonds)
         message = nn.ReLU()(binput)
 
-        for i in xrange(self.depth - 1):
+        for _ in xrange(self.depth - 1):
             nei_message = index_select_ND(message, 0, bgraph)
             nei_message = nei_message.sum(dim=1)
             nei_message = self.W_h(nei_message)

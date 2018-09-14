@@ -1,19 +1,18 @@
 import copy
-import math
 
 from rdkit import DataStructs
-import rdkit
 from rdkit.Chem import AllChem
+import torch
 
-from chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
+from chemutils import enum_assemble, set_atommap, copy_edit_mol, \
+    attach_mols, decode_stereo
 from jtmpn import JTMPN
 from jtnn_dec import JTNNDecoder
 from jtnn_enc import JTNNEncoder
-from mol_tree import Vocab, MolTree
+from mol_tree import MolTree
 from mpn import MPN, mol2graph
 from nnutils import create_var
 import rdkit.Chem as Chem
-import torch
 import torch.nn as nn
 
 
@@ -111,7 +110,8 @@ class JTPropVAE(nn.Module):
 
         loss = word_loss + topo_loss + assm_loss + 2 * \
             stereo_loss + beta * kl_loss + prop_loss
-        return loss, kl_loss.data[0], word_acc, topo_acc, assm_acc, stereo_acc, prop_loss.data[0]
+        return loss, kl_loss.data[0], word_acc, topo_acc, assm_acc, \
+            stereo_acc, prop_loss.data[0]
 
     def assm(self, mol_batch, mol_vec, tree_mess):
         cands = []
@@ -233,7 +233,7 @@ class JTPropVAE(nn.Module):
         cur_vec = create_var(mean.data, True)
 
         visited = []
-        for step in xrange(num_iter):
+        for _ in xrange(num_iter):
             prop_val = self.propNN(cur_vec).squeeze()
             grad = torch.autograd.grad(prop_val, cur_vec)[0]
             cur_vec = cur_vec.data + lr * grad.data
@@ -257,20 +257,8 @@ class JTPropVAE(nn.Module):
                 r = mid - 1
             else:
                 l = mid
-        """
-        best_vec = visited[0]
-        for new_vec in visited:
-            tree_vec,mol_vec = torch.chunk(new_vec, 2, dim=1)
-            new_smiles = self.decode(tree_vec, mol_vec, prob_decode=False)
-            if new_smiles is None: continue
-            new_mol = Chem.MolFromSmiles(new_smiles)
-            fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
-            sim = DataStructs.TanimotoSimilarity(fp1, fp2) 
-            if sim >= sim_cutoff:
-                best_vec = new_vec
-        """
+
         tree_vec, mol_vec = torch.chunk(visited[l], 2, dim=1)
-        #tree_vec,mol_vec = torch.chunk(best_vec, 2, dim=1)
         new_smiles = self.decode(tree_vec, mol_vec, prob_decode=False)
         if new_smiles is None:
             return smiles, 1.0
@@ -299,8 +287,9 @@ class JTPropVAE(nn.Module):
         global_amap[1] = {atom.GetIdx(): atom.GetIdx()
                           for atom in cur_mol.GetAtoms()}
 
-        cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol, global_amap, [
-        ], pred_root, None, prob_decode)
+        cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol,
+                                    global_amap, [], pred_root, None,
+                                    prob_decode)
         if cur_mol is None:
             return None
 
@@ -320,7 +309,8 @@ class JTPropVAE(nn.Module):
         _, max_id = scores.max(dim=0)
         return stereo_cands[max_id.data[0]]
 
-    def dfs_assemble(self, tree_mess, mol_vec, all_nodes, cur_mol, global_amap, fa_amap, cur_node, fa_node, prob_decode):
+    def dfs_assemble(self, tree_mess, mol_vec, all_nodes, cur_mol, global_amap,
+                     fa_amap, cur_node, fa_node, prob_decode):
         fa_nid = fa_node.nid if fa_node is not None else -1
         prev_nodes = [fa_node] if fa_node is not None else []
 
@@ -336,7 +326,7 @@ class JTPropVAE(nn.Module):
         cands = enum_assemble(cur_node, neighbors, prev_nodes, cur_amap)
         if len(cands) == 0:
             return None
-        cand_smiles, cand_mols, cand_amap = zip(*cands)
+        _, cand_mols, cand_amap = zip(*cands)
 
         cands = [(candmol, all_nodes, cur_node) for candmol in cand_mols]
 
@@ -346,7 +336,8 @@ class JTPropVAE(nn.Module):
         scores = torch.mv(cand_vecs, mol_vec) * 20
 
         if prob_decode:
-            probs = nn.Softmax()(scores.view(1, -1)).squeeze() + 1e-5  # prevent prob = 0
+            # prevent prob = 0
+            probs = nn.Softmax()(scores.view(1, -1)).squeeze() + 1e-5
             cand_idx = torch.multinomial(probs, probs.numel())
         else:
             _, cand_idx = torch.sort(scores, descending=True)
@@ -360,7 +351,8 @@ class JTPropVAE(nn.Module):
             for nei_id, ctr_atom, nei_atom in pred_amap:
                 if nei_id == fa_nid:
                     continue
-                new_global_amap[nei_id][nei_atom] = new_global_amap[cur_node.nid][ctr_atom]
+                new_global_amap[nei_id][nei_atom] = \
+                    new_global_amap[cur_node.nid][ctr_atom]
 
             # father is already attached
             cur_mol = attach_mols(cur_mol, children, [], new_global_amap)
@@ -375,7 +367,8 @@ class JTPropVAE(nn.Module):
                 if nei_node.is_leaf:
                     continue
                 cur_mol = self.dfs_assemble(
-                    tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode)
+                    tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap,
+                    pred_amap, nei_node, cur_node, prob_decode)
                 if cur_mol is None:
                     result = False
                     break

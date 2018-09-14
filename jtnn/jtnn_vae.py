@@ -1,19 +1,16 @@
 import copy
-import math
 
-from rdkit import DataStructs
-import rdkit
-from rdkit.Chem import AllChem
+import torch
 
-from chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
+from chemutils import enum_assemble, set_atommap, copy_edit_mol, \
+    attach_mols, decode_stereo
 from jtmpn import JTMPN
 from jtnn_dec import JTNNDecoder
 from jtnn_enc import JTNNEncoder
-from mol_tree import Vocab, MolTree
+from mol_tree import MolTree
 from mpn import MPN, mol2graph
 from nnutils import create_var
 import rdkit.Chem as Chem
-import torch
 import torch.nn as nn
 
 
@@ -100,7 +97,8 @@ class JTNNVAE(nn.Module):
         stereo_loss, stereo_acc = self.stereo(mol_batch, mol_vec)
 
         all_vec = torch.cat([tree_vec, mol_vec], dim=1)
-        loss = word_loss + topo_loss + assm_loss + 2 * stereo_loss + beta * kl_loss
+        loss = word_loss + topo_loss + assm_loss + 2 * stereo_loss + \
+            beta * kl_loss
 
         return loss, kl_loss.data[0], word_acc, topo_acc, assm_acc, stereo_acc
 
@@ -145,7 +143,7 @@ class JTNNVAE(nn.Module):
                 label = create_var(torch.LongTensor([label]))
                 all_loss.append(self.assm_loss(cur_score.view(1, -1), label))
 
-        #all_loss = torch.stack(all_loss).sum() / len(mol_batch)
+        # all_loss = torch.stack(all_loss).sum() / len(mol_batch)
         all_loss = sum(all_loss) / len(mol_batch)
         return all_loss, acc * 1.0 / cnt
 
@@ -180,7 +178,7 @@ class JTNNVAE(nn.Module):
             label = create_var(torch.LongTensor([label]))
             all_loss.append(self.stereo_loss(cur_scores.view(1, -1), label))
             st += le
-        #all_loss = torch.cat(all_loss).sum() / len(labels)
+        # all_loss = torch.cat(all_loss).sum() / len(labels)
         all_loss = sum(all_loss) / len(labels)
         return all_loss, acc * 1.0 / len(labels)
 
@@ -256,8 +254,9 @@ class JTNNVAE(nn.Module):
         global_amap[1] = {atom.GetIdx(): atom.GetIdx()
                           for atom in cur_mol.GetAtoms()}
 
-        cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol, global_amap, [
-        ], pred_root, None, prob_decode)
+        cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol,
+                                    global_amap, [], pred_root, None,
+                                    prob_decode)
         if cur_mol is None:
             return None
 
@@ -277,7 +276,8 @@ class JTNNVAE(nn.Module):
         _, max_id = scores.max(dim=0)
         return stereo_cands[max_id.data[0]]
 
-    def dfs_assemble(self, tree_mess, mol_vec, all_nodes, cur_mol, global_amap, fa_amap, cur_node, fa_node, prob_decode):
+    def dfs_assemble(self, tree_mess, mol_vec, all_nodes, cur_mol, global_amap,
+                     fa_amap, cur_node, fa_node, prob_decode):
         fa_nid = fa_node.nid if fa_node is not None else -1
         prev_nodes = [fa_node] if fa_node is not None else []
 
@@ -293,7 +293,7 @@ class JTNNVAE(nn.Module):
         cands = enum_assemble(cur_node, neighbors, prev_nodes, cur_amap)
         if len(cands) == 0:
             return None
-        cand_smiles, cand_mols, cand_amap = zip(*cands)
+        _, cand_mols, cand_amap = zip(*cands)
 
         cands = [(candmol, all_nodes, cur_node) for candmol in cand_mols]
 
@@ -303,7 +303,8 @@ class JTNNVAE(nn.Module):
         scores = torch.mv(cand_vecs, mol_vec) * 20
 
         if prob_decode:
-            probs = nn.Softmax()(scores.view(1, -1)).squeeze() + 1e-5  # prevent prob = 0
+            # prevent prob = 0
+            probs = nn.Softmax()(scores.view(1, -1)).squeeze() + 1e-5
             cand_idx = torch.multinomial(probs, probs.numel())
         else:
             _, cand_idx = torch.sort(scores, descending=True)
@@ -317,7 +318,8 @@ class JTNNVAE(nn.Module):
             for nei_id, ctr_atom, nei_atom in pred_amap:
                 if nei_id == fa_nid:
                     continue
-                new_global_amap[nei_id][nei_atom] = new_global_amap[cur_node.nid][ctr_atom]
+                new_global_amap[nei_id][nei_atom] = \
+                    new_global_amap[cur_node.nid][ctr_atom]
 
             # father is already attached
             cur_mol = attach_mols(cur_mol, children, [], new_global_amap)
@@ -332,7 +334,8 @@ class JTNNVAE(nn.Module):
                 if nei_node.is_leaf:
                     continue
                 cur_mol = self.dfs_assemble(
-                    tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode)
+                    tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap,
+                    pred_amap, nei_node, cur_node, prob_decode)
                 if cur_mol is None:
                     result = False
                     break

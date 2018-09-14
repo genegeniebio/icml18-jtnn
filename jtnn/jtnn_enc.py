@@ -1,8 +1,8 @@
 from collections import deque
 
-from mol_tree import Vocab, MolTree
-from nnutils import create_var, GRU
 import torch
+
+from nnutils import create_var, GRU
 import torch.nn as nn
 
 
@@ -77,9 +77,9 @@ class JTNNEncoder(nn.Module):
         return h, root_vecs
 
 
-"""
+'''
 Helper functions
-"""
+'''
 
 
 def get_prop_order(root):

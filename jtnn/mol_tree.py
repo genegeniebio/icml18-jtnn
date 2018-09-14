@@ -2,13 +2,15 @@ import copy
 
 import rdkit
 
-from chemutils import get_clique_mol, tree_decomp, get_mol, get_smiles, set_atommap, enum_assemble, decode_stereo
+from chemutils import get_clique_mol, tree_decomp, get_mol, get_smiles, \
+    set_atommap, enum_assemble, decode_stereo
 import rdkit.Chem as Chem
 
 
 def get_slots(smiles):
     mol = Chem.MolFromSmiles(smiles)
-    return [(atom.GetSymbol(), atom.GetFormalCharge(), atom.GetTotalNumHs()) for atom in mol.GetAtoms()]
+    return [(atom.GetSymbol(), atom.GetFormalCharge(), atom.GetTotalNumHs())
+            for atom in mol.GetAtoms()]
 
 
 class Vocab(object):
@@ -137,12 +139,16 @@ class MolTree(object):
             node.assemble()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
     lg = rdkit.RDLogger.logger()
     lg.setLevel(rdkit.RDLogger.CRITICAL)
 
-    sys.stderr.write('Running tree decomposition on the dataset. Molecules with high tree-width will be reported. It is recommended to remove them from the dataset, as training JT-VAE on high tree-width molecules will cause out-of-memory error.\n')
+    sys.stderr.write('Running tree decomposition on the dataset. Molecules '
+                     'with high tree-width will be reported. It is '
+                     'recommended to remove them from the dataset, as '
+                     'training JT-VAE on high tree-width molecules will '
+                     'cause out-of-memory error.\n')
     MAX_TREE_WIDTH = 15
 
     cset = set()
@@ -156,6 +162,7 @@ if __name__ == "__main__":
             cset.add(c.smiles)
         if len(mol.nodes) > 1 and alert:
             sys.stderr.write(
-                '[WARNING]: %d-th molecule %s has a high tree-width.\n' % (i + 1, smiles))
+                '[WARNING]: %d-th molecule %s has a high tree-width.\n'
+                % (i + 1, smiles))
     for x in cset:
         print x
