@@ -1,6 +1,6 @@
 from rdkit.Chem import Descriptors, MolFromSmiles
 
-from bo import sascorer
+from utils import sascorer
 
 smiles = ['CC(C)(C)c1ccc2occ(CC(=O)Nc3ccccc3F)c2c1']
 
