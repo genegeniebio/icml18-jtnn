@@ -1,31 +1,25 @@
-from collections import deque
-import math
-import random
-import sys
 from optparse import OptionParser
 
 import rdkit
-
-from jtnn import *
-import rdkit.Chem as Chem
 import torch
-from torch.autograd import Variable
-import torch.nn as nn
+
+from jtnn import JTNNVAE, Vocab
+import rdkit.Chem as Chem
 
 
 lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = OptionParser()
-parser.add_option("-t", "--test", dest="test_path")
-parser.add_option("-v", "--vocab", dest="vocab_path")
-parser.add_option("-m", "--model", dest="model_path")
-parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
-parser.add_option("-l", "--latent", dest="latent_size", default=56)
-parser.add_option("-d", "--depth", dest="depth", default=3)
+parser.add_option('-t', '--test', dest='test_path')
+parser.add_option('-v', '--vocab', dest='vocab_path')
+parser.add_option('-m', '--model', dest='model_path')
+parser.add_option('-w', '--hidden', dest='hidden_size', default=200)
+parser.add_option('-l', '--latent', dest='latent_size', default=56)
+parser.add_option('-d', '--depth', dest='depth', default=3)
 opts, args = parser.parse_args()
 
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
+vocab = [x.strip('\r\n ') for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -39,7 +33,7 @@ model = model.cuda()
 data = []
 with open(opts.test_path) as f:
     for line in f:
-        s = line.strip("\r\n ").split()[0]
+        s = line.strip('\r\n ').split()[0]
         data.append(s)
 
 acc = 0.0
@@ -53,11 +47,3 @@ for smiles in data:
         acc += 1
     tot += 1
     print acc / tot
-    """
-    dec_smiles = model.recon_eval(smiles3D)
-    tot += len(dec_smiles)
-    for s in dec_smiles:
-        if s == smiles3D:
-            acc += 1
-    print acc / tot
-    """

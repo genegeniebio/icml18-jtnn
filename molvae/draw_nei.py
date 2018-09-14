@@ -1,31 +1,26 @@
-import math
-import random
-import sys
 from optparse import OptionParser
 
 import rdkit
 from rdkit.Chem import Draw
+import torch
 
-from jtnn import *
+from jtnn import JTNNVAE, Vocab, create_var
 import numpy as np
 import rdkit.Chem as Chem
-import torch
-from torch.autograd import Variable
-import torch.nn as nn
 
 
 lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = OptionParser()
-parser.add_option("-v", "--vocab", dest="vocab_path")
-parser.add_option("-m", "--model", dest="model_path")
-parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
-parser.add_option("-l", "--latent", dest="latent_size", default=56)
-parser.add_option("-d", "--depth", dest="depth", default=3)
+parser.add_option('-v', '--vocab', dest='vocab_path')
+parser.add_option('-m', '--model', dest='model_path')
+parser.add_option('-w', '--hidden', dest='hidden_size', default=200)
+parser.add_option('-l', '--latent', dest='latent_size', default=56)
+parser.add_option('-d', '--depth', dest='depth', default=3)
 opts, args = parser.parse_args()
 
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
+vocab = [x.strip('\r\n ') for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -44,8 +39,7 @@ y = np.random.randn(latent_size)
 y -= y.dot(x) * x
 y /= np.linalg.norm(y)
 
-#z0 = "CN1C(C2=CC(NC3C[C@H](C)C[C@@H](C)C3)=CN=C2)=NN=C1"
-z0 = "COC1=CC(OC)=CC([C@@H]2C[NH+](CCC(F)(F)F)CC2)=C1"
+z0 = 'COC1=CC(OC)=CC([C@@H]2C[NH+](CCC(F)(F)F)CC2)=C1'
 z0 = model.encode_latent_mean([z0]).squeeze()
 z0 = z0.data.cpu().numpy()
 
