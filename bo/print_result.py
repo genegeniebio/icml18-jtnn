@@ -1,12 +1,5 @@
 import gzip
 import pickle
-import sys
-
-from rdkit.Chem import Descriptors
-from rdkit.Chem import Draw
-
-import rdkit.Chem as Chem
-import sascorer
 
 
 def save_object(obj, filename):
@@ -37,7 +30,3 @@ all_smiles = [(x, -y) for x, y in all_smiles]
 all_smiles = sorted(all_smiles, key=lambda x: x[1], reverse=True)
 for s, v in all_smiles:
     print s, v
-#mols = [Chem.MolFromSmiles(s) for s,_ in all_smiles[:50]]
-#vals = ["%.2f" % y for _,y in all_smiles[:50]]
-#img = Draw.MolsToGridImage(mols, molsPerRow=5, subImgSize=(200,135), legends=vals, useSVG=True)
-# print img

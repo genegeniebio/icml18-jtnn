@@ -1,8 +1,6 @@
-
-from scipy.spatial.distance import cdist
+import theano
 
 import numpy as np
-import theano
 import theano.tensor as T
 
 
@@ -23,7 +21,8 @@ def compute_kernel(lls, lsf, x, z):
 
     lsre = T.outer(T.ones_like(x[:, 0]), ls)
 
-    r2 = T.outer(T.sum(x * x / lsre, 1), T.ones_like(z[:, 0: 1])) - np.float32(2) * \
+    r2 = T.outer(T.sum(x * x / lsre, 1),
+                 T.ones_like(z[:, 0: 1])) - np.float32(2) * \
         T.dot(x / lsre, T.transpose(z)) + \
         T.dot(np.float32(1.0) / lsre, T.transpose(z)**2)
 
@@ -69,7 +68,8 @@ def compute_psi1(lls, lsf, xmean, xvar, z):
     lspxvar = ls + xvar
     constterm1 = ls / lspxvar
     constterm2 = T.prod(T.sqrt(constterm1), 1)
-    r2_psi1 = T.outer(T.sum(xmean * xmean / lspxvar, 1), T.ones_like(z[:, 0: 1])) \
+    r2_psi1 = T.outer(T.sum(xmean * xmean / lspxvar, 1),
+                      T.ones_like(z[:, 0: 1])) \
         - np.float32(2) * T.dot(xmean / lspxvar, T.transpose(z)) + \
         T.dot(np.float32(1.0) / lspxvar, T.transpose(z)**2)
     psi1 = sf * \
@@ -90,7 +90,8 @@ def compute_psi1_numpy(lls, lsf, xmean, xvar, z):
     constterm1 = ls / lspxvar
     constterm2 = np.prod(np.sqrt(constterm1), 1)
     r2_psi1 = np.outer(np.sum(xmean * xmean / lspxvar, 1),
-                       np.ones(z.shape[0])) - 2 * np.dot(xmean / lspxvar, z.T) + \
+                       np.ones(z.shape[0])) - 2 * \
+        np.dot(xmean / lspxvar, z.T) + \
         np.dot(1.0 / lspxvar, z.T ** 2)
     psi1 = sf * np.outer(constterm2,
                          np.ones(z.shape[0])) * np.exp(-0.5 * r2_psi1)
@@ -107,7 +108,8 @@ def compute_psi2(lls, lsf, z, input_means, input_vars):
     scale = T.sqrt(4 * (2 * b[None, :] + 0 * input_vars))
     scaled_z = z[None, :, :] / scale[:, None, :]
     scaled_z_minus_m = scaled_z
-    r2b = T.sum(scaled_z_minus_m**2, 2)[:, None, :] + T.sum(scaled_z_minus_m**2, 2)[:, :, None] - \
+    r2b = T.sum(scaled_z_minus_m**2, 2)[:, None, :] + \
+        T.sum(scaled_z_minus_m**2, 2)[:, :, None] - \
         2 * T.batched_dot(scaled_z_minus_m,
                           np.transpose(scaled_z_minus_m, [0, 2, 1]))
     term_2 = T.exp(-r2b)
@@ -117,7 +119,8 @@ def compute_psi2(lls, lsf, z, input_means, input_vars):
     scaled_m = input_means / scale
     scaled_m = T.tile(scaled_m[:, None, :], [1, z.shape[0], 1])
     scaled_z_minus_m = scaled_z - scaled_m
-    r2b = T.sum(scaled_z_minus_m**2, 2)[:, None, :] + T.sum(scaled_z_minus_m**2, 2)[:, :, None] + \
+    r2b = T.sum(scaled_z_minus_m**2, 2)[:, None, :] + \
+        T.sum(scaled_z_minus_m**2, 2)[:, :, None] + \
         2 * T.batched_dot(scaled_z_minus_m,
                           np.transpose(scaled_z_minus_m, [0, 2, 1]))
     term_3 = T.exp(-r2b)
@@ -137,7 +140,8 @@ def compute_psi2_numpy(lls, lsf, z, input_means, input_vars):
     scale = np.sqrt(4 * (2 * b[None, :] + 0 * input_vars))
     scaled_z = z[None, :, :] / scale[:, None, :]
     scaled_z_minus_m = scaled_z
-    r2b = np.sum(scaled_z_minus_m**2, 2)[:, None, :] + np.sum(scaled_z_minus_m**2, 2)[:, :, None] - \
+    r2b = np.sum(scaled_z_minus_m**2, 2)[:, None, :] + \
+        np.sum(scaled_z_minus_m**2, 2)[:, :, None] - \
         2 * np.einsum('ijk,ikl->ijl', scaled_z_minus_m,
                       np.transpose(scaled_z_minus_m, [0, 2, 1]))
     term_2 = np.exp(-r2b)
@@ -147,7 +151,8 @@ def compute_psi2_numpy(lls, lsf, z, input_means, input_vars):
     scaled_m = input_means / scale
     scaled_m = np.tile(scaled_m[:, None, :], [1, z.shape[0], 1])
     scaled_z_minus_m = scaled_z - scaled_m
-    r2b = np.sum(scaled_z_minus_m**2, 2)[:, None, :] + np.sum(scaled_z_minus_m**2, 2)[:, :, None] + \
+    r2b = np.sum(scaled_z_minus_m**2, 2)[:, None, :] + \
+        np.sum(scaled_z_minus_m**2, 2)[:, :, None] + \
         2 * np.einsum('ijk,ikl->ijl', scaled_z_minus_m,
                       np.transpose(scaled_z_minus_m, [0, 2, 1]))
     term_3 = np.exp(-r2b)

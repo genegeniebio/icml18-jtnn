@@ -1,18 +1,19 @@
 import gzip
 from optparse import OptionParser
-import os.path
 import pickle
 
 import rdkit
 from rdkit.Chem import Descriptors
-from rdkit.Chem import MolFromSmiles, MolToSmiles
+from rdkit.Chem import MolFromSmiles
+from rdkit.Chem import rdmolops
+import torch
 
 from jtnn import create_var, JTNNVAE, Vocab
+import networkx as nx
 import numpy as np
 import scipy.stats as sps
 from sparse_gp import SparseGP
-import torch
-import torch.nn as nn
+from utils import sascorer
 
 
 lg = rdkit.RDLogger.logger()
@@ -94,7 +95,8 @@ while iteration < 5:
     M = 500
     sgp = SparseGP(X_train, 0 * X_train, y_train, M)
     sgp.train_via_ADAM(X_train, 0 * X_train, y_train, X_test, X_test * 0,
-                       y_test, minibatch_size=10 * M, max_iterations=100, learning_rate=0.001)
+                       y_test, minibatch_size=10 * M, max_iterations=100,
+                       learning_rate=0.001)
 
     pred, uncert = sgp.predict(X_test, 0 * X_test)
     error = np.sqrt(np.mean((pred - y_test)**2))
@@ -129,10 +131,6 @@ while iteration < 5:
     new_features = np.vstack(new_features)
     save_object(valid_smiles, opts.save_dir +
                 "/valid_smiles{}.dat".format(iteration))
-
-    import sascorer
-    import networkx as nx
-    from rdkit.Chem import rdmolops
 
     scores = []
     for i in range(len(valid_smiles)):

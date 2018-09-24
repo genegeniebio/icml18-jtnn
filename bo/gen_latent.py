@@ -4,14 +4,12 @@ import rdkit
 from rdkit.Chem import Descriptors
 from rdkit.Chem import MolFromSmiles, MolToSmiles
 from rdkit.Chem import rdmolops
+import torch
 
-from jtnn import *
+from jtnn import JTNNVAE, Vocab
 import networkx as nx
 import numpy as np
-import sascorer
-import torch
-from torch.autograd import Variable
-import torch.nn as nn
+from utils import sascorer
 
 
 lg = rdkit.RDLogger.logger()
@@ -89,7 +87,8 @@ for i in xrange(0, len(smiles), batch_size):
 latent_points = np.vstack(latent_points)
 np.savetxt('latent_features.txt', latent_points)
 
-targets = SA_scores_normalized + logP_values_normalized + cycle_scores_normalized
+targets = SA_scores_normalized + logP_values_normalized + \
+    cycle_scores_normalized
 np.savetxt('targets.txt', targets)
 np.savetxt('logP_values.txt', np.array(logP_values))
 np.savetxt('SA_scores.txt', np.array(SA_scores))
