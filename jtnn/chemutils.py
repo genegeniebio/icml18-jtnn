@@ -10,15 +10,13 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 # pylint: disable=no-member
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
-from collections import defaultdict
+from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers
+from rdkit.Chem.rdchem import CHI_UNSPECIFIED
 
-from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
 
 import rdkit.Chem as Chem
 
 
-MST_MAX_WEIGHT = 100
 MAX_NCAND = 2000
 
 
@@ -49,26 +47,24 @@ def sanitize(mol):
 
 
 def decode_stereo(smiles2d):
-    '''Decode stereochemistry.'''
+    '''Appears to remove chirality from chiral N.'''
     mol = Chem.MolFromSmiles(smiles2d)
-    dec_isomers = list(Chem.EnumerateStereoisomers.EnumerateStereoisomers(mol))
 
-    dec_isomers = [Chem.MolFromSmiles(Chem.MolToSmiles(
-        mol, isomericSmiles=True)) for mol in dec_isomers]
+    dec_isomers = [Chem.MolFromSmiles(Chem.MolToSmiles(dec_isomer))
+                   for dec_isomer in EnumerateStereoisomers(mol)]
 
-    smiles3d = [Chem.MolToSmiles(mol, isomericSmiles=True)
-                for mol in dec_isomers]
+    smiles3d = [Chem.MolToSmiles(mol) for mol in dec_isomers]
 
     chiral_n = [atom.GetIdx()
                 for atom in dec_isomers[0].GetAtoms()
-                if int(atom.GetChiralTag()) > 0 and atom.GetSymbol() == 'N']
+                if atom.GetChiralTag() != CHI_UNSPECIFIED
+                and atom.GetSymbol() == 'N']
 
-    if chiral_n:
-        for mol in dec_isomers:
-            for idx in chiral_n:
-                mol.GetAtomWithIdx(idx).SetChiralTag(
-                    Chem.rdchem.ChiralType.CHI_UNSPECIFIED)
-            smiles3d.append(Chem.MolToSmiles(mol, isomericSmiles=True))
+    for mol in dec_isomers:
+        for idx in chiral_n:
+            mol.GetAtomWithIdx(idx).SetChiralTag(CHI_UNSPECIFIED)
+
+        smiles3d.append(Chem.MolToSmiles(mol))
 
     return smiles3d
 
@@ -103,93 +99,6 @@ def get_clique_mol(mol, atoms):
     new_mol = copy_edit_mol(new_mol).GetMol()
     new_mol = sanitize(new_mol)  # We assume this is not None
     return new_mol
-
-
-def tree_decomp(mol):
-    '''Tree decomposition.'''
-    if mol.GetNumAtoms() == 1:
-        return [[0]], []
-
-    cliques = []
-
-    for bond in mol.GetBonds():
-        if not bond.IsInRing():
-            cliques.append([bond.GetBeginAtom().GetIdx(),
-                            bond.GetEndAtom().GetIdx()])
-
-    cliques.extend([list(x) for x in Chem.GetSymmSSSR(mol)])
-
-    nei_list = [[] for i in xrange(mol.GetNumAtoms())]
-
-    for i in xrange(len(cliques)):
-        for atom in cliques[i]:
-            nei_list[atom].append(i)
-
-    # Merge Rings with intersection > 2 atoms
-    for i in xrange(len(cliques)):
-        if len(cliques[i]) <= 2:
-            continue
-        for atom in cliques[i]:
-            for j in nei_list[atom]:
-                if i >= j or len(cliques[j]) <= 2:
-                    continue
-                inter = set(cliques[i]) & set(cliques[j])
-                if len(inter) > 2:
-                    cliques[i].extend(cliques[j])
-                    cliques[i] = list(set(cliques[i]))
-                    cliques[j] = []
-
-    cliques = [c for c in cliques if len(c) > 0]
-
-    nei_list = [[] for i in xrange(mol.GetNumAtoms())]
-
-    for i in xrange(len(cliques)):
-        for atom in cliques[i]:
-            nei_list[atom].append(i)
-
-    # Build edges and add singleton cliques
-    edges = defaultdict(int)
-
-    for atom in xrange(mol.GetNumAtoms()):
-        if len(nei_list[atom]) <= 1:
-            continue
-        cnei = nei_list[atom]
-        bonds = [c for c in cnei if len(cliques[c]) == 2]
-        rings = [c for c in cnei if len(cliques[c]) > 4]
-        # In general, if len(cnei) >= 3, a singleton should be added, but 1
-        # bond + 2 ring is currently not dealt with.
-        if len(bonds) > 2 or (len(bonds) == 2 and len(cnei) > 2):
-            cliques.append([atom])
-
-            for c_1 in cnei:
-                edges[(c_1, len(cliques) - 1)] = 1
-        elif len(rings) > 2:  # Multiple (n>2) complex rings
-            cliques.append([atom])
-
-            for c_1 in cnei:
-                edges[(c_1, len(cliques) - 1)] = MST_MAX_WEIGHT - 1
-        else:
-            for i in xrange(len(cnei)):
-                for j in xrange(i + 1, len(cnei)):
-                    inter = set(cliques[cnei[i]]) & set(cliques[cnei[j]])
-
-                    if edges[(cnei[i], cnei[j])] < len(inter):
-                        # cnei[i] < cnei[j] by construction
-                        edges[(cnei[i], cnei[j])] = len(inter)
-
-    edges = [u + (MST_MAX_WEIGHT - v,) for u, v in edges.iteritems()]
-
-    if not edges:
-        return cliques, edges
-
-    # Compute Maximum Spanning Tree
-    row, col, data = zip(*edges)
-    n_clique = len(cliques)
-    clique_graph = csr_matrix((data, (row, col)), shape=(n_clique, n_clique))
-    junc_tree = minimum_spanning_tree(clique_graph)
-    row, col = junc_tree.nonzero()
-    edges = [(row[i], col[i]) for i in xrange(len(row))]
-    return (cliques, edges)
 
 
 def atom_equal(atom_1, atom_2):

@@ -10,10 +10,18 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 # pylint: disable=no-member
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=wrong-import-order
+from collections import defaultdict
 import copy
+
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 
 from jtnn import chemutils
 import rdkit.Chem as Chem
+
+
+# from rdkit.Chem import Draw
+_MST_MAX_WEIGHT = 100
 
 
 class Vocab(object):
@@ -164,11 +172,11 @@ class MolTree(object):
 
         # Stereo generation:
         mol = Chem.MolFromSmiles(smiles)
-        self.__smiles3d = Chem.MolToSmiles(mol, isomericSmiles=True)
         self.__smiles2d = Chem.MolToSmiles(mol)
+        self.__smiles3d = Chem.MolToSmiles(mol, isomericSmiles=True)
         self.__stereo_cands = chemutils.decode_stereo(self.__smiles2d)
 
-        cliques, edges = chemutils.tree_decomp(self.__mol)
+        cliques, edges = _tree_decomp(self.__mol)
 
         root = 0
 
@@ -216,6 +224,117 @@ class MolTree(object):
         '''Assemble.'''
         for node in self.__nodes:
             node.assemble()
+
+
+def _tree_decomp(mol):
+    '''Tree decomposition.'''
+    if mol.GetNumAtoms() == 1:
+        cliques = [[0]]
+        edges = []
+    else:
+        # For 'cliques' read bonds, paired by atom idx:
+        cliques = [[bond.GetBeginAtom().GetIdx(),
+                    bond.GetEndAtom().GetIdx()]
+                   for bond in mol.GetBonds()
+                   if not bond.IsInRing()]
+
+        # Add rings?
+        cliques.extend([list(x) for x in Chem.GetSymmSSSR(mol)])
+
+        # Merge rings:
+        cliques = _merge_rings(mol, cliques)
+
+        edges = _get_edges(mol, cliques)
+
+        if edges:
+            # Compute minimum spanning tree:
+            row, col, data = zip(*edges)
+
+            clique_graph = csr_matrix((data,
+                                       (row, col)),
+                                      shape=(len(cliques), len(cliques)))
+
+            junc_tree = minimum_spanning_tree(clique_graph)
+            row, col = junc_tree.nonzero()
+            edges = [(row[i], col[i]) for i in xrange(len(row))]
+
+    return cliques, edges
+
+
+def _merge_rings(mol, cliques):
+    '''Merge rings with intersection > 2 atoms.'''
+    neighbours = _get_neighbours(mol, cliques)
+
+    for idx, clique in enumerate(cliques):
+        if len(clique) <= 2:
+            continue
+
+        for atom in clique:
+            for j in neighbours[atom]:
+                if idx >= j or len(cliques[j]) <= 2:
+                    continue
+
+                inter = set(clique) & set(cliques[j])
+
+                if len(inter) > 2:
+                    clique.extend(cliques[j])
+                    clique = list(set(clique))
+                    cliques[j] = []
+
+    # Remove empty cliques:
+    return [clique for clique in cliques if clique]
+
+
+def _get_edges(mol, cliques):
+    '''Build edges and add singleton cliques.'''
+    edges = defaultdict(int)
+    neighbours = _get_neighbours(mol, cliques)
+
+    for atom_idx, neighbour in enumerate(neighbours):
+        if len(neighbour) <= 1:
+            continue
+
+        bonds = [clq_idx for clq_idx in neighbour
+                 if len(cliques[clq_idx]) == 2]
+
+        rings = [clq_idx for clq_idx in neighbour
+                 if len(cliques[clq_idx]) > 4]
+
+        # In general, if len(neighbour) >= 3, a singleton should be added,
+        # but 1 bond + 2 ring is currently not dealt with:
+        if len(bonds) > 2 or (len(bonds) == 2 and len(neighbour) > 2):
+            cliques.append([atom_idx])
+
+            for c_1 in neighbour:
+                edges[(c_1, len(cliques) - 1)] = 1
+
+        elif len(rings) > 2:  # Multiple (n>2) complex rings
+            cliques.append([atom_idx])
+
+            for c_1 in neighbour:
+                edges[(c_1, len(cliques) - 1)] = _MST_MAX_WEIGHT - 1
+        else:
+            for i in xrange(len(neighbour)):
+                for j in xrange(i + 1, len(neighbour)):
+                    inter = set(cliques[neighbour[i]]) \
+                        & set(cliques[neighbour[j]])
+
+                    if edges[(neighbour[i], neighbour[j])] < len(inter):
+                        # neighbour[i] < neighbour[j] by construction
+                        edges[(neighbour[i], neighbour[j])] = len(inter)
+
+    return [u + (_MST_MAX_WEIGHT - v,) for u, v in edges.iteritems()]
+
+
+def _get_neighbours(mol, cliques):
+    '''Neighbours are a list of cliques that each atom belongs to.'''
+    neighbours = [[] for _ in range(mol.GetNumAtoms())]
+
+    for idx, clique in enumerate(cliques):
+        for atom in clique:
+            neighbours[atom].append(idx)
+
+    return neighbours
 
 
 def _get_slots(smiles):
