@@ -55,7 +55,7 @@ class MolTreeNode(object):
         self.__mol = chemutils.get_mol(self.__smiles)
         self.__clique = list(clique if clique else [])
         self.__neighbors = []
-        self.__nid = None
+        self.__node_id = None
         self.__cands = []
         self.__cand_mols = []
         self.__label = None
@@ -77,9 +77,9 @@ class MolTreeNode(object):
         '''Get clique.'''
         return self.__neighbors
 
-    def get_nid(self):
-        '''Get nid.'''
-        return self.__nid
+    def get_node_id(self):
+        '''Get node_id.'''
+        return self.__node_id
 
     def get_candidates(self):
         '''Get candidates.'''
@@ -97,9 +97,9 @@ class MolTreeNode(object):
         '''Add neighbour.'''
         self.__neighbors.append(neighbor)
 
-    def set_nid(self, nid):
-        '''Set nid.'''
-        self.__nid = nid
+    def set_node_id(self, node_id):
+        '''Set node_id.'''
+        self.__node_id = node_id
 
     def recover(self, original_mol):
         '''Recover.'''
@@ -108,7 +108,7 @@ class MolTreeNode(object):
 
         if not self.is_leaf():
             for cidx in self.__clique:
-                original_mol.GetAtomWithIdx(cidx).SetAtomMapNum(self.__nid)
+                original_mol.GetAtomWithIdx(cidx).SetAtomMapNum(self.__node_id)
 
         for nei_node in self.__neighbors:
             clique.extend(nei_node.get_clique())
@@ -122,11 +122,11 @@ class MolTreeNode(object):
                 if cidx not in self.__clique or \
                         len(nei_node.get_clique()) == 1:
                     atom = original_mol.GetAtomWithIdx(cidx)
-                    atom.SetAtomMapNum(nei_node.get_nid())
+                    atom.SetAtomMapNum(nei_node.get_node_id())
 
         clique = list(set(clique))
 
-        label_mol = chemutils.get_clique_mol(original_mol, clique)
+        label_mol = _get_clique_mol(original_mol, clique)
 
         self.__label = Chem.MolToSmiles(
             Chem.MolFromSmiles(chemutils.get_smiles(label_mol)))
@@ -174,18 +174,21 @@ class MolTree(object):
         self.__smiles3d = Chem.MolToSmiles(mol, isomericSmiles=True)
         self.__stereo_cands = chemutils.decode_stereo(self.__smiles2d)
 
+        # Calculate cliques and edges:
         cliques, edges = _tree_decomp(self.__mol)
 
+        # Add nodes:
         root = 0
 
-        for i, clique in enumerate(cliques):
-            cmol = chemutils.get_clique_mol(self.__mol, clique)
-            node = MolTreeNode(chemutils.get_smiles(cmol), clique)
-            self.__nodes.append(node)
+        for clq_idx, clique in enumerate(cliques):
+            clq_mol = _get_clique_mol(self.__mol, clique)
+            self.__nodes.append(MolTreeNode(chemutils.get_smiles(clq_mol),
+                                            clique))
 
             if min(clique) == 0:
-                root = i
+                root = clq_idx
 
+        # Add edges:
         for edge_x, edge_y in edges:
             self.__nodes[edge_x].add_neighbor(self.__nodes[edge_y])
             self.__nodes[edge_y].add_neighbor(self.__nodes[edge_x])
@@ -195,11 +198,11 @@ class MolTree(object):
                 self.__nodes[root], self.__nodes[0]
 
         for i, node in enumerate(self.__nodes):
-            node.set_nid(i + 1)
+            node.set_node_id(i + 1)
 
             # Leaf node mol is not marked:
             if not node.is_leaf():
-                chemutils.set_atommap(node.get_mol(), node.get_nid())
+                chemutils.set_atommap(node.get_mol(), node.get_node_id())
 
     def get_smiles(self):
         '''Get smiles.'''
@@ -336,6 +339,14 @@ def _get_neighbours(mol, cliques):
             neighbours[atom].append(idx)
 
     return neighbours
+
+
+def _get_clique_mol(mol, atoms):
+    '''Get clique molecule.'''
+    clq_smiles = Chem.MolFragmentToSmiles(mol, atoms, kekuleSmiles=True)
+    clq_mol = Chem.MolFromSmiles(clq_smiles, sanitize=False)
+    clq_mol = chemutils.copy_edit_mol(clq_mol).GetMol()
+    return chemutils.sanitize(clq_mol)
 
 
 def _get_slots(smiles):

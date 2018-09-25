@@ -82,22 +82,12 @@ def copy_edit_mol(mol):
     new_mol = Chem.RWMol(Chem.MolFromSmiles(''))
 
     for atom in mol.GetAtoms():
-        new_atom = copy_atom(atom)
-        new_mol.AddAtom(new_atom)
+        new_mol.AddAtom(copy_atom(atom))
 
     for bond in mol.GetBonds():
         new_mol.AddBond(bond.GetBeginAtom().GetIdx(),
                         bond.GetEndAtom().GetIdx(),
                         bond.GetBondType())
-    return new_mol
-
-
-def get_clique_mol(mol, atoms):
-    '''Get clique molecule.'''
-    smiles = Chem.MolFragmentToSmiles(mol, atoms, kekuleSmiles=True)
-    new_mol = Chem.MolFromSmiles(smiles, sanitize=False)
-    new_mol = copy_edit_mol(new_mol).GetMol()
-    new_mol = sanitize(new_mol)  # We assume this is not None
     return new_mol
 
 
