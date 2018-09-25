@@ -12,6 +12,7 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 # pylint: disable=wrong-import-order
 from collections import defaultdict
 import copy
+import itertools
 
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
@@ -314,14 +315,12 @@ def _get_edges(mol, cliques):
             for c_1 in neighbour:
                 edges[(c_1, len(cliques) - 1)] = _MST_MAX_WEIGHT - 1
         else:
-            for i in xrange(len(neighbour)):
-                for j in xrange(i + 1, len(neighbour)):
-                    inter = set(cliques[neighbour[i]]) \
-                        & set(cliques[neighbour[j]])
+            for pair in itertools.combinations(neighbour, r=2):
+                inter = set(cliques[pair[0]]) & set(cliques[pair[1]])
 
-                    if edges[(neighbour[i], neighbour[j])] < len(inter):
-                        # neighbour[i] < neighbour[j] by construction
-                        edges[(neighbour[i], neighbour[j])] = len(inter)
+                if edges[(pair[0], pair[1])] < len(inter):
+                    # neighbour[i] < neighbour[j] by construction
+                    edges[(pair[0], pair[1])] = len(inter)
 
     return [u + (_MST_MAX_WEIGHT - v,) for u, v in edges.iteritems()]
 
