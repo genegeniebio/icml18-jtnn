@@ -109,7 +109,7 @@ class JTNNVAE(nn.Module):
             for node in mol_tree.nodes:
                 # Leaf node's attachment is determined by neighboring node's
                 # attachment
-                if node.is_leaf or len(node.cands) == 1:
+                if node.is_leaf() or len(node.cands) == 1:
                     continue
                 cands.extend([(cand, mol_tree.nodes, node)
                               for cand in node.cand_mols])
@@ -129,7 +129,7 @@ class JTNNVAE(nn.Module):
         all_loss = []
         for i, mol_tree in enumerate(mol_batch):
             comp_nodes = [node for node in mol_tree.nodes if len(
-                node.cands) > 1 and not node.is_leaf]
+                node.cands) > 1 and not node.is_leaf()]
             cnt += len(comp_nodes)
             for node in comp_nodes:
                 label = node.cands.index(node.label)
@@ -243,7 +243,7 @@ class JTNNVAE(nn.Module):
         # Mark nid & is_leaf & atommap
         for i, node in enumerate(pred_nodes):
             node.nid = i + 1
-            node.is_leaf = (len(node.neighbors) == 1)
+
             if len(node.neighbors) > 1:
                 set_atommap(node.mol, node.nid)
 
@@ -331,7 +331,7 @@ class JTNNVAE(nn.Module):
 
             result = True
             for nei_node in children:
-                if nei_node.is_leaf:
+                if nei_node.is_leaf():
                     continue
                 cur_mol = self.dfs_assemble(
                     tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap,
