@@ -21,14 +21,8 @@ class Test(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__smiles = ['CCC(C)CO',  # chiral
-                        'CO',
-                        'O=C1[C@@H]2C=C[C@@H](C=CC2)C1(c1ccccc1)c1ccccc1',
-                        'O=C([O-])CC[C@@]12CCCC[C@]1(O)OC(=O)CC2',
-                        'ON=C1C[C@H]2CC3(C[C@@H](C1)c1ccccc12)OCCO3',
-                        'Cc1cc(NC(=O)CSc2nnc3c4ccccc4n(C)c3n2)ccc1Br',
-                        'CC(C)(C)c1ccc(C(=O)N[C@H]2CCN3CCCc4cccc2c43)cc1',
-                        'O=C(N1CCc2c(F)ccc(F)c2C1)C1(O)Cc2ccccc2C1']
+        cls.__smiles = ['CCC(C)CO',     # chiral
+                        'Oc1ccccc1']    # ring (phenol)
 
     def test_tree(self):
         '''test_tree.'''

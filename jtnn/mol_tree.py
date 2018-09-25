@@ -11,7 +11,6 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=wrong-import-order
 from collections import defaultdict
-import copy
 from itertools import combinations
 
 from scipy.sparse import csr_matrix
@@ -20,31 +19,6 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 from jtnn import chemutils
 import rdkit.Chem as Chem
 # from rdkit.Chem import Draw
-
-
-class Vocab(object):
-    '''Class to represent a vocabulary.'''
-
-    def __init__(self, vocab):
-        self.__vocab = vocab
-        self.__vmap = {x: i for i, x in enumerate(self.__vocab)}
-        self.__slots = [_get_slots(smiles) for smiles in self.__vocab]
-
-    def get_index(self, smiles):
-        '''Get index.'''
-        return self.__vmap[smiles]
-
-    def get_smiles(self, idx):
-        '''Get smiles.'''
-        return self.__vocab[idx]
-
-    def get_slots(self, idx):
-        '''Get slots.'''
-        return copy.deepcopy(self.__slots[idx])
-
-    def size(self):
-        '''Get size.'''
-        return len(self.__vocab)
 
 
 class MolTreeNode(object):
@@ -103,26 +77,26 @@ class MolTreeNode(object):
 
     def recover(self, original_mol):
         '''Recover.'''
-        clique = []
-        clique.extend(self.__clique)
+        clique = list(self.__clique)
 
         if not self.is_leaf():
-            for cidx in self.__clique:
-                original_mol.GetAtomWithIdx(cidx).SetAtomMapNum(self.__node_id)
+            for clq_idx in self.__clique:
+                original_mol.GetAtomWithIdx(
+                    clq_idx).SetAtomMapNum(self.__node_id)
 
-        for nei_node in self.__neighbors:
-            clique.extend(nei_node.get_clique())
+        for neighbour in self.__neighbors:
+            clique.extend(neighbour.get_clique())
 
             # Leaf node, no need to mark:
-            if nei_node.is_leaf():
+            if neighbour.is_leaf():
                 continue
 
-            for cidx in nei_node.get_clique():
+            for clq_idx in neighbour.get_clique():
                 # Allow singleton node override the atom mapping:
-                if cidx not in self.__clique or \
-                        len(nei_node.get_clique()) == 1:
-                    atom = original_mol.GetAtomWithIdx(cidx)
-                    atom.SetAtomMapNum(nei_node.get_node_id())
+                if clq_idx not in self.__clique or \
+                        len(neighbour.get_clique()) == 1:
+                    atom = original_mol.GetAtomWithIdx(clq_idx)
+                    atom.SetAtomMapNum(neighbour.get_node_id())
 
         clique = list(set(clique))
 
@@ -132,8 +106,8 @@ class MolTreeNode(object):
             Chem.MolFromSmiles(chemutils.get_smiles(label_mol)))
         self.__label_mol = chemutils.get_mol(self.__label)
 
-        for cidx in clique:
-            original_mol.GetAtomWithIdx(cidx).SetAtomMapNum(0)
+        for clq_idx in clique:
+            original_mol.GetAtomWithIdx(clq_idx).SetAtomMapNum(0)
 
         return self.__label
 
@@ -170,9 +144,8 @@ class MolTree(object):
 
         # Stereo generation:
         mol = Chem.MolFromSmiles(smiles)
-        self.__smiles2d = Chem.MolToSmiles(mol)
         self.__smiles3d = Chem.MolToSmiles(mol, isomericSmiles=True)
-        self.__stereo_cands = chemutils.decode_stereo(self.__smiles2d)
+        self.__stereo_cands = chemutils.decode_stereo(Chem.MolToSmiles(mol))
 
         # Calculate cliques and edges:
         cliques, edges = _tree_decomp(self.__mol)
@@ -239,7 +212,7 @@ def _tree_decomp(mol):
                    for bond in mol.GetBonds()
                    if not bond.IsInRing()]
 
-        # Add rings?
+        # Add rings:
         cliques.extend([list(x) for x in Chem.GetSymmSSSR(mol)])
 
         # Merge rings:
@@ -347,12 +320,6 @@ def _get_clique_mol(mol, atoms):
     clq_mol = Chem.MolFromSmiles(clq_smiles, sanitize=False)
     clq_mol = chemutils.copy_edit_mol(clq_mol).GetMol()
     return chemutils.sanitize(clq_mol)
-
-
-def _get_slots(smiles):
-    '''Get slots from smiles.'''
-    return [(atm.GetSymbol(), atm.GetFormalCharge(), atm.GetTotalNumHs())
-            for atm in Chem.MolFromSmiles(smiles).GetAtoms()]
 
 
 def _get_vocabulary(filename, max_tree_width=15):

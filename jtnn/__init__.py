@@ -1,9 +1,9 @@
-from chemutils import decode_stereo
-from datautils import MoleculeDataset, PropDataset
-from jtnn_vae import JTNNVAE
-from jtprop_vae import JTPropVAE
-from mol_tree import Vocab, MolTree
-from mpn import MPN, mol2graph
-from nnutils import create_var
+'''
+synbiochem (c) University of Manchester 2018
 
+synbiochem is licensed under the MIT License.
 
+To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
+
+@author:  neilswainston
+'''
