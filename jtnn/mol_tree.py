@@ -12,17 +12,14 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 # pylint: disable=wrong-import-order
 from collections import defaultdict
 import copy
-import itertools
+from itertools import combinations
 
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 
 from jtnn import chemutils
 import rdkit.Chem as Chem
-
-
 # from rdkit.Chem import Draw
-_MST_MAX_WEIGHT = 100
 
 
 class Vocab(object):
@@ -248,16 +245,7 @@ def _tree_decomp(mol):
         edges = _get_edges(mol, cliques)
 
         if edges:
-            # Compute minimum spanning tree:
-            row, col, data = zip(*edges)
-
-            clique_graph = csr_matrix((data,
-                                       (row, col)),
-                                      shape=(len(cliques), len(cliques)))
-
-            junc_tree = minimum_spanning_tree(clique_graph)
-            row, col = junc_tree.nonzero()
-            edges = [(row[i], col[i]) for i in xrange(len(row))]
+            edges = _calc_min_span_tree(edges, cliques)
 
     return cliques, edges
 
@@ -287,9 +275,10 @@ def _merge_rings(mol, cliques):
 
 
 def _get_edges(mol, cliques):
-    '''Build edges and add singleton cliques.'''
+    '''Build edges between cliques and add singleton cliques.'''
     edges = defaultdict(int)
     neighbours = _get_neighbours(mol, cliques)
+    max_weight = 128
 
     for atom_idx, neighbour in enumerate(neighbours):
         if len(neighbour) <= 1:
@@ -306,23 +295,36 @@ def _get_edges(mol, cliques):
         if len(bonds) > 2 or (len(bonds) == 2 and len(neighbour) > 2):
             cliques.append([atom_idx])
 
-            for c_1 in neighbour:
-                edges[(c_1, len(cliques) - 1)] = 1
+            for clq_idx in neighbour:
+                edges[(clq_idx, len(cliques) - 1)] = 1
 
         elif len(rings) > 2:  # Multiple (n>2) complex rings
             cliques.append([atom_idx])
 
-            for c_1 in neighbour:
-                edges[(c_1, len(cliques) - 1)] = _MST_MAX_WEIGHT - 1
+            for clq_idx in neighbour:
+                edges[(clq_idx, len(cliques) - 1)] = max_weight - 1
         else:
-            for pair in itertools.combinations(neighbour, r=2):
-                inter = set(cliques[pair[0]]) & set(cliques[pair[1]])
+            for (clq_idx_1, clq_idx_2) in combinations(neighbour, r=2):
+                inter = set(cliques[clq_idx_1]) & set(cliques[clq_idx_2])
 
-                if edges[(pair[0], pair[1])] < len(inter):
-                    # neighbour[i] < neighbour[j] by construction
-                    edges[(pair[0], pair[1])] = len(inter)
+                if edges[(clq_idx_1, clq_idx_2)] < len(inter):
+                    # clq_idx_1 < clq_idx_2 by construction
+                    edges[(clq_idx_1, clq_idx_2)] = len(inter)
 
-    return [u + (_MST_MAX_WEIGHT - v,) for u, v in edges.iteritems()]
+    return [clq_idxs + (max_weight - weight,)
+            for clq_idxs, weight in edges.iteritems()]
+
+
+def _calc_min_span_tree(edges, cliques):
+    '''Calculate minimum spanning tree.'''
+    row, col, weight = zip(*edges)
+
+    clique_graph = csr_matrix((weight,
+                               (row, col)),
+                              shape=(len(cliques), len(cliques)))
+
+    junc_tree = minimum_spanning_tree(clique_graph)
+    return zip(*junc_tree.nonzero())
 
 
 def _get_neighbours(mol, cliques):
