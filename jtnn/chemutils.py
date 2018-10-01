@@ -8,6 +8,7 @@ To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 @author:  neilswainston
 '''
 # pylint: disable=no-member
+# pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers
@@ -15,9 +16,6 @@ from rdkit.Chem.rdchem import CHI_UNSPECIFIED
 
 
 import rdkit.Chem as Chem
-
-
-MAX_NCAND = 2000
 
 
 def set_atommap(mol, num=0):
@@ -114,10 +112,10 @@ def ring_bond_equal(bond_1, bond_2, reverse=False):
 
 def attach_mols(ctr_mol, neighbors, prev_nodes, nei_amap):
     '''Attach mols.'''
-    prev_nids = [node.nid for node in prev_nodes]
+    prev_nids = [node.get_node_id() for node in prev_nodes]
 
     for nei_node in prev_nodes + neighbors:
-        amap = nei_amap[nei_node.get_nid()]
+        amap = nei_amap[nei_node.get_node_id()]
 
         for atom in nei_node.get_mol().GetAtoms():
             if atom.GetIdx() not in amap:
@@ -135,7 +133,8 @@ def attach_mols(ctr_mol, neighbors, prev_nodes, nei_amap):
 
                 if not ctr_mol.GetBondBetweenAtoms(atom_1, atom_2):
                     ctr_mol.AddBond(atom_1, atom_2, bond.GetBondType())
-                elif nei_node.get_nid() in prev_nids:  # father node overrides
+                elif nei_node.get_node_id() in prev_nids:
+                    # father node overrides
                     ctr_mol.RemoveBond(atom_1, atom_2)
                     ctr_mol.AddBond(atom_1, atom_2, bond.GetBondType())
 
@@ -145,7 +144,7 @@ def attach_mols(ctr_mol, neighbors, prev_nodes, nei_amap):
 def local_attach(ctr_mol, neighbors, prev_nodes, amap_list):
     '''Local attach.'''
     ctr_mol = copy_edit_mol(ctr_mol)
-    nei_amap = {nei.get_nid(): {} for nei in prev_nodes + neighbors}
+    nei_amap = {nei.get_node_id(): {} for nei in prev_nodes + neighbors}
 
     for nei_id, ctr_atom, nei_atom in amap_list:
         nei_amap[nei_id][nei_atom] = ctr_atom
@@ -170,7 +169,7 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
         used_list = [atom_idx for _, atom_idx, _ in amap]
         for atom in ctr_atoms:
             if atom_equal(atom, nei_atom) and atom.GetIdx() not in used_list:
-                new_amap = amap + [(nei_node.get_nid(), atom.GetIdx(), 0)]
+                new_amap = amap + [(nei_node.get_node_id(), atom.GetIdx(), 0)]
                 att_confs.append(new_amap)
 
     elif nei_node.get_mol().GetNumBonds() == 1:  # neighbor is a bond
@@ -182,12 +181,12 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
                     and atom.GetTotalNumHs() < int(bond.GetBondTypeAsDouble()):
                 continue
             if atom_equal(atom, bond.GetBeginAtom()):
-                new_amap = amap + [(nei_node.get_nid(),
+                new_amap = amap + [(nei_node.get_node_id(),
                                     atom.GetIdx(),
                                     bond.GetEndAtom().GetIdx())]
                 att_confs.append(new_amap)
             elif atom_equal(atom, bond.GetEndAtom()):
-                new_amap = amap + [(nei_node.get_nid(),
+                new_amap = amap + [(nei_node.get_node_id(),
                                     atom.GetIdx(),
                                     bond.GetEndAtom().GetIdx())]
                 att_confs.append(new_amap)
@@ -202,7 +201,7 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
                             atom_1.GetTotalNumHs() \
                             + atom_2.GetTotalNumHs() < 4:
                         continue
-                    new_amap = amap + [(nei_node.get_nid(),
+                    new_amap = amap + [(nei_node.get_node_id(),
                                         atom_1.GetIdx(),
                                         atom_2.GetIdx())]
                     att_confs.append(new_amap)
@@ -212,19 +211,19 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
             for bond_1 in ctr_bonds:
                 for bond_2 in nei_node.get_mol().GetBonds():
                     if ring_bond_equal(bond_1, bond_2):
-                        new_amap = amap + [(nei_node.get_nid(),
+                        new_amap = amap + [(nei_node.get_node_id(),
                                             bond_1.GetBeginAtom().GetIdx(),
                                             bond_2.GetBeginAtom().GetIdx()),
-                                           (nei_node.get_nid(),
+                                           (nei_node.get_node_id(),
                                             bond_1.GetEndAtom().GetIdx(),
                                             bond_2.GetEndAtom().GetIdx())]
                         att_confs.append(new_amap)
 
                     if ring_bond_equal(bond_1, bond_2, reverse=True):
-                        new_amap = amap + [(nei_node.get_nid(),
+                        new_amap = amap + [(nei_node.get_node_id(),
                                             bond_1.GetBeginAtom().GetIdx(),
                                             bond_2.GetEndAtom().GetIdx()),
-                                           (nei_node.get_nid(),
+                                           (nei_node.get_node_id(),
                                             bond_1.GetEndAtom().GetIdx(),
                                             bond_2.GetBeginAtom().GetIdx())]
                         att_confs.append(new_amap)
@@ -242,51 +241,102 @@ def enum_assemble(node, neighbors, prev_nodes=None, prev_amap=None):
         prev_amap = []
 
     all_attach_confs = []
-    singletons = [nei_node.get_nid()
+
+    singletons = [nei_node.get_node_id()
                   for nei_node in neighbors + prev_nodes
                   if nei_node.get_mol().GetNumAtoms() == 1]
 
-    def search(cur_amap, depth):
-        '''search.'''
-        if len(all_attach_confs) > MAX_NCAND:
-            return
-        if depth == len(neighbors):
-            all_attach_confs.append(cur_amap)
-            return
+    _search(prev_amap, 0, all_attach_confs, neighbors, singletons, node,
+            prev_nodes)
 
-        nei_node = neighbors[depth]
-        cand_amap = enum_attach(node.get_mol(), nei_node, cur_amap, singletons)
-        cand_smiles = set()
-        candidates = []
-        for amap in cand_amap:
-            cand_mol = local_attach(
-                node.get_mol(), neighbors[:depth + 1], prev_nodes, amap)
-            cand_mol = sanitize(cand_mol)
-            if cand_mol is None:
-                continue
-            smiles = get_smiles(cand_mol)
-            if smiles in cand_smiles:
-                continue
-            cand_smiles.add(smiles)
-            candidates.append(amap)
-
-        if not candidates:
-            return
-
-        for new_amap in candidates:
-            search(new_amap, depth + 1)
-
-    search(prev_amap, 0)
     cand_smiles = set()
     candidates = []
+
     for amap in all_attach_confs:
         cand_mol = local_attach(node.get_mol(), neighbors, prev_nodes, amap)
         cand_mol = Chem.MolFromSmiles(Chem.MolToSmiles(cand_mol))
         smiles = Chem.MolToSmiles(cand_mol)
+
         if smiles in cand_smiles:
             continue
+
         cand_smiles.add(smiles)
         Chem.Kekulize(cand_mol)
         candidates.append((smiles, cand_mol, amap))
 
     return candidates
+
+
+def _search(cur_amap, depth, all_attach_confs, neighbors, singletons, node,
+            prev_nodes):
+    '''search.'''
+    max_candidates = 2000
+
+    if len(all_attach_confs) > max_candidates:
+        return
+
+    if depth == len(neighbors):
+        all_attach_confs.append(cur_amap)
+        return
+
+    nei_node = neighbors[depth]
+    cand_amap = enum_attach(node.get_mol(), nei_node, cur_amap, singletons)
+    cand_smiles = set()
+    candidates = []
+    for amap in cand_amap:
+        cand_mol = local_attach(
+            node.get_mol(), neighbors[:depth + 1], prev_nodes, amap)
+        cand_mol = sanitize(cand_mol)
+        if cand_mol is None:
+            continue
+        smiles = get_smiles(cand_mol)
+        if smiles in cand_smiles:
+            continue
+        cand_smiles.add(smiles)
+        candidates.append(amap)
+
+    if not candidates:
+        return
+
+    for new_amap in candidates:
+        _search(new_amap, depth + 1, all_attach_confs, neighbors, singletons,
+                node, prev_nodes)
+
+# Only used for debugging purpose
+
+
+def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
+    '''dfs_assemble.'''
+    fa_nid = fa_node.get_node_id() if fa_node is not None else -1
+    prev_nodes = [fa_node] if fa_node is not None else []
+
+    children = [nei for nei in cur_node.get_neighbors()
+                if nei.get_node_id() != fa_nid]
+
+    neighbors = [nei for nei in children if nei.get_mol().GetNumAtoms() > 1]
+    neighbors = sorted(
+        neighbors, key=lambda x: x.get_mol().GetNumAtoms(), reverse=True)
+    singletons = [nei for nei in children if nei.get_mol().GetNumAtoms() == 1]
+    neighbors = singletons + neighbors
+
+    cur_amap = [(fa_nid, a2, a1)
+                for nid, a1, a2 in fa_amap if nid == cur_node.get_node_id()]
+
+    cands = enum_assemble(cur_node, neighbors, prev_nodes, cur_amap)
+
+    cand_smiles, cand_mol, cand_amap = zip(*cands)
+    print cand_smiles[0] + '\t' + cur_node.get_label()
+    label_idx = cand_smiles.index(cur_node.get_label())
+    label_amap = cand_amap[label_idx]
+
+    for nei_id, ctr_atom, nei_atom in label_amap:
+        if nei_id == fa_nid:
+            continue
+        global_amap[nei_id][nei_atom] = \
+            global_amap[cur_node.get_node_id()][ctr_atom]
+
+    # father is already attached
+    cur_mol = attach_mols(cur_mol, children, [], global_amap)
+    for nei_node in children:
+        if not nei_node.is_leaf():
+            dfs_assemble(cur_mol, global_amap, label_amap, nei_node, cur_node)

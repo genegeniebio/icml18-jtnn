@@ -12,7 +12,7 @@ import unittest
 
 import rdkit.Chem
 
-from jtnn.chemutils import copy_edit_mol, set_atommap
+from jtnn.chemutils import copy_edit_mol, dfs_assemble, set_atommap
 from jtnn.mol_tree import MolTree
 
 
@@ -47,13 +47,19 @@ class Test(unittest.TestCase):
             global_amap[1] = {atom.GetIdx(): atom.GetIdx()
                               for atom in cur_mol.GetAtoms()}
 
+            dfs_assemble(cur_mol, global_amap, [], tree.get_nodes()[0],
+                         None)
+
             cur_mol = cur_mol.GetMol()
             cur_mol = rdkit.Chem.MolFromSmiles(rdkit.Chem.MolToSmiles(cur_mol))
             set_atommap(cur_mol)
             dec_smiles = rdkit.Chem.MolToSmiles(cur_mol)
 
-            gold_smiles = \
-                rdkit.Chem.MolToSmiles(rdkit.Chem.MolFromSmiles(smiles))
+            gold_smiles = rdkit.Chem.MolToSmiles(
+                rdkit.Chem.MolFromSmiles(smiles))
+
+            if gold_smiles != dec_smiles:
+                print gold_smiles, dec_smiles
 
             self.assertEqual(gold_smiles, dec_smiles)
 
