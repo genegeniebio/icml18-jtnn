@@ -1,4 +1,4 @@
-'''
+"""
 synbiochem (c) University of Manchester 2018
 
 synbiochem is licensed under the MIT License.
@@ -6,14 +6,14 @@ synbiochem is licensed under the MIT License.
 To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 
 @author:  neilswainston
-'''
+"""
 # pylint: disable=no-member
 import copy
 import rdkit.Chem as Chem
 
 
 class Vocabulary(object):
-    '''Class to represent a vocabulary.'''
+    """Class to represent a vocabulary."""
 
     def __init__(self, vocab):
         self.__vocab = vocab
@@ -25,17 +25,17 @@ class Vocabulary(object):
                         for smiles in self.__vocab]
 
     def get_index(self, smiles):
-        '''Get index.'''
+        """Get index."""
         return self.__vmap[smiles]
 
     def get_smiles(self, idx):
-        '''Get smiles.'''
+        """Get smiles."""
         return self.__vocab[idx]
 
     def get_slots(self, idx):
-        '''Get slots.'''
+        """Get slots."""
         return copy.deepcopy(self.__slots[idx])
 
     def size(self):
-        '''Get size.'''
+        """Get size."""
         return len(self.__vocab)

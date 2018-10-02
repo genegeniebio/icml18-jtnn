@@ -1,4 +1,6 @@
-'''
+# coding=utf-8
+
+"""
 synbiochem (c) University of Manchester 2018
 
 synbiochem is licensed under the MIT License.
@@ -6,7 +8,7 @@ synbiochem is licensed under the MIT License.
 To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 
 @author:  neilswainston
-'''
+"""
 # pylint: disable=no-member
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=wrong-import-order
@@ -22,7 +24,7 @@ import rdkit.Chem as Chem
 
 
 class MolTreeNode(object):
-    '''Class to represent a molecular tree node.'''
+    """Class to represent a molecular tree node."""
 
     def __init__(self, smiles, clique=None):
         self.__smiles = smiles
@@ -36,47 +38,47 @@ class MolTreeNode(object):
         self.__label_mol = None
 
     def get_smiles(self):
-        '''Get smiles.'''
+        """Get smiles."""
         return self.__smiles
 
     def get_mol(self):
-        '''Get mol.'''
+        """Get mol."""
         return self.__mol
 
     def get_clique(self):
-        '''Get clique.'''
+        """Get clique."""
         return self.__clique
 
     def get_neighbors(self):
-        '''Get clique.'''
+        """Get clique."""
         return self.__neighbors
 
     def get_node_id(self):
-        '''Get node_id.'''
+        """Get node_id."""
         return self.__node_id
 
     def get_candidates(self):
-        '''Get candidates.'''
+        """Get candidates."""
         return self.__cands
 
     def get_label(self):
-        '''Get label.'''
+        """Get label."""
         return self.__label
 
     def is_leaf(self):
-        '''Is the node a leaf?'''
+        """Is the node a leaf?"""
         return len(self.__neighbors) == 1
 
     def add_neighbor(self, neighbor):
-        '''Add neighbour.'''
+        """Add neighbour."""
         self.__neighbors.append(neighbor)
 
     def set_node_id(self, node_id):
-        '''Set node_id.'''
+        """Set node_id."""
         self.__node_id = node_id
 
     def recover(self, original_mol):
-        '''Recover.'''
+        """Recover."""
         clique = list(self.__clique)
 
         if not self.is_leaf():
@@ -112,7 +114,7 @@ class MolTreeNode(object):
         return self.__label
 
     def assemble(self):
-        '''Assemble.'''
+        """Assemble."""
         neighbors = sorted([nei for nei in self.__neighbors
                             if nei.get_mol().GetNumAtoms() > 1],
                            key=lambda x: x.get_mol().GetNumAtoms(),
@@ -135,7 +137,7 @@ class MolTreeNode(object):
 
 
 class MolTree(object):
-    '''Class to represent a molecular tree.'''
+    """Class to represent a molecular tree."""
 
     def __init__(self, smiles):
         self.__smiles = smiles
@@ -178,30 +180,30 @@ class MolTree(object):
                 chemutils.set_atommap(node.get_mol(), node.get_node_id())
 
     def get_smiles(self):
-        '''Get smiles.'''
+        """Get smiles."""
         return self.__smiles
 
     def get_nodes(self):
-        '''Get nodes.'''
+        """Get nodes."""
         return self.__nodes
 
     def size(self):
-        '''Get size.'''
+        """Get size."""
         return len(self.__nodes)
 
     def recover(self):
-        '''Recover.'''
+        """Recover."""
         for node in self.__nodes:
             node.recover(self.__mol)
 
     def assemble(self):
-        '''Assemble.'''
+        """Assemble."""
         for node in self.__nodes:
             node.assemble()
 
 
 def _tree_decomp(mol):
-    '''Tree decomposition.'''
+    """Tree decomposition."""
     if mol.GetNumAtoms() == 1:
         cliques = [[0]]
         edges = []
@@ -227,7 +229,7 @@ def _tree_decomp(mol):
 
 
 def _merge_rings(mol, cliques):
-    '''Merge rings with intersection > 2 atoms.'''
+    """Merge rings with intersection > 2 atoms."""
     neighbours = _get_neighbours(mol, cliques)
 
     for idx, clique in enumerate(cliques):
@@ -251,7 +253,7 @@ def _merge_rings(mol, cliques):
 
 
 def _get_edges(mol, cliques):
-    '''Build edges between cliques and add singleton cliques.'''
+    """Build edges between cliques and add singleton cliques."""
     edges = defaultdict(int)
     neighbours = _get_neighbours(mol, cliques)
     max_weight = 128
@@ -288,11 +290,11 @@ def _get_edges(mol, cliques):
                     edges[(clq_idx_1, clq_idx_2)] = len(inter)
 
     return [clq_idxs + (max_weight - weight,)
-            for clq_idxs, weight in edges.iteritems()]
+            for clq_idxs, weight in edges.items()]
 
 
 def _calc_min_span_tree(edges, cliques):
-    '''Calculate minimum spanning tree.'''
+    """Calculate minimum spanning tree."""
     row, col, weight = zip(*edges)
 
     clique_graph = csr_matrix((weight,
@@ -304,7 +306,7 @@ def _calc_min_span_tree(edges, cliques):
 
 
 def _get_neighbours(mol, cliques):
-    '''Neighbours are a list of cliques that each atom belongs to.'''
+    """Neighbours are a list of cliques that each atom belongs to."""
     neighbours = [[] for _ in range(mol.GetNumAtoms())]
 
     for idx, clique in enumerate(cliques):
@@ -315,7 +317,7 @@ def _get_neighbours(mol, cliques):
 
 
 def _get_clique_mol(mol, atoms):
-    '''Get clique molecule.'''
+    """Get clique molecule."""
     clq_smiles = Chem.MolFragmentToSmiles(mol, atoms, kekuleSmiles=True)
     clq_mol = Chem.MolFromSmiles(clq_smiles, sanitize=False)
     clq_mol = chemutils.copy_edit_mol(clq_mol).GetMol()
@@ -323,7 +325,7 @@ def _get_clique_mol(mol, atoms):
 
 
 def _get_vocabulary(filename, max_tree_width=15):
-    '''Get vocabulary.'''
+    """Get vocabulary."""
     vocabulary = set()
 
     with open(filename) as fle:

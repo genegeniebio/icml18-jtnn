@@ -295,9 +295,9 @@ class JTNNDecoder(nn.Module):
         return root, all_nodes
 
 
-'''
+"""
 Helper Functions:
-'''
+"""
 
 
 def dfs(stack, x, fa):

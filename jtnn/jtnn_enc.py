@@ -77,9 +77,9 @@ class JTNNEncoder(nn.Module):
         return h, root_vecs
 
 
-'''
+"""
 Helper functions
-'''
+"""
 
 
 def get_prop_order(root):

@@ -1,4 +1,6 @@
-'''
+# coding=utf-8
+
+"""
 synbiochem (c) University of Manchester 2018
 
 synbiochem is licensed under the MIT License.
@@ -6,7 +8,7 @@ synbiochem is licensed under the MIT License.
 To view a copy of this license, visit <http://opensource.org/licenses/MIT/>.
 
 @author:  neilswainston
-'''
+"""
 # pylint: disable=no-member
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
@@ -19,13 +21,13 @@ import rdkit.Chem as Chem
 
 
 def set_atommap(mol, num=0):
-    '''Set atom map.'''
+    """Set atom map."""
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(num)
 
 
 def get_mol(smiles):
-    '''Get mol from smiles.'''
+    """Get mol from smiles."""
     mol = Chem.MolFromSmiles(smiles)
 
     if mol:
@@ -35,17 +37,17 @@ def get_mol(smiles):
 
 
 def get_smiles(mol):
-    '''Get smiles from mol.'''
+    """Get smiles from mol."""
     return Chem.MolToSmiles(mol, kekuleSmiles=True)
 
 
 def sanitize(mol):
-    '''sanitize.'''
+    """sanitize."""
     return get_mol(get_smiles(mol))
 
 
 def decode_stereo(smiles2d):
-    '''Appears to remove chirality from chiral N.'''
+    """Appears to remove chirality from chiral N."""
     mol = Chem.MolFromSmiles(smiles2d)
 
     dec_isomers = [Chem.MolFromSmiles(Chem.MolToSmiles(dec_isomer))
@@ -68,7 +70,7 @@ def decode_stereo(smiles2d):
 
 
 def copy_atom(atom):
-    '''Copy atom.'''
+    """Copy atom."""
     new_atom = Chem.Atom(atom.GetSymbol())
     new_atom.SetFormalCharge(atom.GetFormalCharge())
     new_atom.SetAtomMapNum(atom.GetAtomMapNum())
@@ -76,7 +78,7 @@ def copy_atom(atom):
 
 
 def copy_edit_mol(mol):
-    '''Copy edit molecule.'''
+    """Copy edit molecule."""
     new_mol = Chem.RWMol(Chem.MolFromSmiles(''))
 
     for atom in mol.GetAtoms():
@@ -90,7 +92,7 @@ def copy_edit_mol(mol):
 
 
 def atom_equal(atom_1, atom_2):
-    '''Atoms equal?'''
+    """Atoms equal?"""
     return atom_1.GetSymbol() == atom_2.GetSymbol() and \
         atom_1.GetFormalCharge() == atom_2.GetFormalCharge()
 
@@ -98,7 +100,7 @@ def atom_equal(atom_1, atom_2):
 
 
 def ring_bond_equal(bond_1, bond_2, reverse=False):
-    '''Ring bond equal?'''
+    """Ring bond equal?"""
     bond_1 = (bond_1.GetBeginAtom(), bond_1.GetEndAtom())
 
     if reverse:
@@ -111,7 +113,7 @@ def ring_bond_equal(bond_1, bond_2, reverse=False):
 
 
 def attach_mols(ctr_mol, neighbors, prev_nodes, nei_amap):
-    '''Attach mols.'''
+    """Attach mols."""
     prev_nids = [node.get_node_id() for node in prev_nodes]
 
     for nei_node in prev_nodes + neighbors:
@@ -142,7 +144,7 @@ def attach_mols(ctr_mol, neighbors, prev_nodes, nei_amap):
 
 
 def local_attach(ctr_mol, neighbors, prev_nodes, amap_list):
-    '''Local attach.'''
+    """Local attach."""
     ctr_mol = copy_edit_mol(ctr_mol)
     nei_amap = {nei.get_node_id(): {} for nei in prev_nodes + neighbors}
 
@@ -156,7 +158,7 @@ def local_attach(ctr_mol, neighbors, prev_nodes, amap_list):
 
 
 def enum_attach(ctr_mol, nei_node, amap, singletons):
-    '''Enumerate attach.'''
+    """Enumerate attach."""
     att_confs = []
     black_list = [atom_idx for nei_id, atom_idx,
                   _ in amap if nei_id in singletons]
@@ -233,7 +235,7 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
 
 
 def enum_assemble(node, neighbors, prev_nodes=None, prev_amap=None):
-    '''Enum assemble.'''
+    """Enum assemble."""
     if not prev_nodes:
         prev_nodes = []
 
@@ -269,7 +271,7 @@ def enum_assemble(node, neighbors, prev_nodes=None, prev_amap=None):
 
 def _search(cur_amap, depth, all_attach_confs, neighbors, singletons, node,
             prev_nodes):
-    '''search.'''
+    """search."""
     max_candidates = 2000
 
     if len(all_attach_confs) > max_candidates:
@@ -306,7 +308,7 @@ def _search(cur_amap, depth, all_attach_confs, neighbors, singletons, node,
 
 
 def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
-    '''dfs_assemble.'''
+    """dfs_assemble."""
     fa_nid = fa_node.get_node_id() if fa_node is not None else -1
     prev_nodes = [fa_node] if fa_node is not None else []
 
@@ -325,7 +327,7 @@ def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
     cands = enum_assemble(cur_node, neighbors, prev_nodes, cur_amap)
 
     cand_smiles, cand_mol, cand_amap = zip(*cands)
-    print cand_smiles[0] + '\t' + cur_node.get_label()
+    print(cand_smiles[0] + '\t' + cur_node.get_label())
     label_idx = cand_smiles.index(cur_node.get_label())
     label_amap = cand_amap[label_idx]
 
